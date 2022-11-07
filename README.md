@@ -1,20 +1,24 @@
-# FreeNAS/TrueNAS Scripts
-Handy shell and Perl scripts for use on FreeNAS and TrueNAS servers
+# TrueNAS Scale Scripts
 
-Most of the shell scripts here are my versions of the useful scripts available at the ["Scripts to report SMART, ZPool and UPS status, HDD/CPU T°, HDD identification and backup the config"](https://forums.freenas.org/index.php?threads/scripts-to-report-smart-zpool-and-ups-status-hdd-cpu-t%C2%B0-hdd-identification-and-backup-the-config.27365/) thread on the FreeNAS forum. The original author is FreeNAS forum member BiduleOhm, with others contributing suggestions and code changes. I have modified the syntax and made minor changes in formatting and spacing of the generated reports.
+Handy shell and Perl scripts for use on TrueNAS Scale servers.
 
-I used the excellent shell script static analysis tool at https://www.shellcheck.net to insure that all of the code is POSIX-compliant and free of issues. But this doesn't mean you won't find any errors.  ☺️
+This repo is a port of [FreeNAS-scripts](https://github.com/Spearfoot/FreeNAS-scripts) by Keith Nash a.k.a. Spearfoot to TrueNas Scale.
 
-All of the Perl code is my own contribution.
+Most of the shell scripts here are Keith's versions of the useful scripts available at the ["Scripts to report SMART, ZPool and UPS status, HDD/CPU T°, HDD identification and backup the config"](https://forums.freenas.org/index.php?threads/scripts-to-report-smart-zpool-and-ups-status-hdd-cpu-t%C2%B0-hdd-identification-and-backup-the-config.27365/) thread on the FreeNAS forum. 
+The original author is FreeNAS forum member BiduleOhm, with others contributing suggestions and code changes. 
+I have modified the syntax and made minor changes in formatting and spacing of the generated reports.
+
+I used the excellent shell script static analysis tool at https://www.shellcheck.net to ensure that all the code is POSIX-compliant and free of issues. 
+But this doesn't mean you won't find any errors.  ☺️
+
+All the Perl code is Keit's contribution.
+
 ***
 #### Operating System Compatibility
 
 Tested under:
-* TrueNAS 12.0 (FreeBSD 12.2)
-* FreeNAS 11.3 (FreeBSD 11.3-STABLE)
-* FreeNAS 11.2 (FreeBSD 11.2-STABLE)
+* TrueNAS-SCALE-22.02.4 (Linux Kernel 5.10.142)
 
-Earlier versions of FreeNAS were supported, but are no longer tested.
 
 ***
 # smart_report.sh
@@ -148,7 +152,10 @@ Some hard drives retain these values when powered down, but some do not - includ
 
 Displays the current temperature of your system's CPU and drives. 
 
-By default, the script uses `sysctl` to determine the number of CPU cores and report their temperatures. This reports a temperature for each core on systems equipped with modern multi-core CPUs. The optional IPMI support, if enabled, reports a single temperature for each socketed CPU. The latter result is probably more useful for monitoring CPU status.
+By default, the script uses `sysctl` to determine the number of CPU cores and report their temperatures. 
+This reports a temperature for each core on systems equipped with modern multi-core CPUs. 
+The optional IPMI support, if enabled, reports a single temperature for each socketed CPU. 
+The latter result is probably more useful for monitoring CPU status.
 
 To enable IPMI support, edit the script and:
 * Set the `use_ipmi` variable to `1`
