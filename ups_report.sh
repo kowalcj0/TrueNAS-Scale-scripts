@@ -1,4 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# See https://sharats.me/posts/shell-script-best-practices/
+# set -o errexit  # Disable to allow for testing which UPSC variables are available
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
 
 # Send UPS report to designated email address
 # Reference: http://networkupstools.org/docs/developer-guide.chunked/apas01.html
@@ -14,7 +22,7 @@ senddetail=0
 
 freenashost=$(hostname -s)
 freenashostuc=$(hostname -s | tr '[:lower:]' '[:upper:]')
-boundary="===== MIME boundary; FreeNAS server ${freenashost} ====="
+boundary="===== MIME boundary; TrueNas Scale server ${freenashost} ====="
 logfile="/tmp/ups_report.tmp"
 subject="UPS Status Report for ${freenashostuc}"
 
@@ -46,12 +54,14 @@ upslist=$(upsc -l "${freenashost}")
    ups_status=$(upsc "${ups}" ups.status 2> /dev/null)
    ups_load=$(upsc "${ups}" ups.load 2> /dev/null)
    ups_realpower=$(upsc "${ups}" ups.realpower 2> /dev/null)
-   ups_realpowernominal=$(upsc "${ups}" ups.realpower.nominal 2> /dev/null)
+   ups_realpowernominal=$(upsc "${ups}" ups.power.nominal 2> /dev/null)
    ups_batterycharge=$(upsc "${ups}" battery.charge 2> /dev/null)
    ups_batteryruntime=$(upsc "${ups}" battery.runtime 2> /dev/null)
    ups_batteryvoltage=$(upsc "${ups}" battery.voltage 2> /dev/null)
    ups_inputvoltage=$(upsc "${ups}" input.voltage 2> /dev/null)
    ups_outputvoltage=$(upsc "${ups}" output.voltage 2> /dev/null)
+   ups_outputfrequency=$(upsc "${ups}" output.frequency.nominal 2> /dev/null)
+   ups_outletpower=$(upsc "${ups}" outlet.power 2> /dev/null)
    printf "=== %s %s, model %s, serial number %s\n\n" "${ups_mfr}" "${ups_type}" "${ups_model}" "${ups_serial} ==="
    echo "Name: ${ups}"
    echo "Status: ${ups_status}"
@@ -68,9 +78,17 @@ upslist=$(upsc -l "${freenashost}")
    if [ ! -z "${ups_outputvoltage}" ]; then
      echo "Output Voltage: ${ups_outputvoltage}V"
    fi
+   if [ ! -z "${ups_outputfrequency}" ]; then
+     echo "Nominal output frequency: ${ups_outputfrequency}Hz"
+   fi
+   if [ ! -z "${ups_outletpower}" ]; then
+     echo "Apparent mail outlet power: ${ups_outletpower}VA"
+   fi
    echo "Battery Runtime: ${ups_batteryruntime}s"
    echo "Battery Charge: ${ups_batterycharge}%"
-   echo "Battery Voltage: ${ups_batteryvoltage}V"
+   if [ ! -z "${ups_batteryvoltage}" ]; then
+     echo "Battery Voltage: ${ups_batteryvoltage}V"
+   fi
    echo ""
    if [ $senddetail -gt 0 ]; then
      echo "=== ALL AVAILABLE UPS VARIABLES ==="
@@ -90,4 +108,3 @@ else
   sendmail -t -oi < ${logfile}
   rm ${logfile}
 fi
-

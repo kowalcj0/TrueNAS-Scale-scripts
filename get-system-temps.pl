@@ -1,22 +1,22 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
 ###############################################################################
-# 
+#
 # get-system-temps.pl
-# 
+#
 # Displays CPU and drive temperatures
-# 
+#
 # Drive information reported includes the device ID, temperature, capacity, type
 # (SDD or HDD), serial number, model, and, if available, the model family.
-# 
+#
 # Optionally uses IPMI to report CPU temperatures. Otherwise, these are pulled
 # from sysctl. IPMI is more accurate in that it reports the temperature of each
-# socketed CPU in the system, even on virtualized instances, whereas the CPU 
+# socketed CPU in the system, even on virtualized instances, whereas the CPU
 # temperatures typically aren't available from sysctl in this case.
-# 
+#
 # Requires the smartmontools, available at: https://www.smartmontools.org/
-# 
+#
 # Keith Nash, July 2017
-# 
+#
 ###############################################################################
 
 use strict;
@@ -29,13 +29,13 @@ chomp($hostname);
 
 # Full path to the smartctl program:
 
-my $smartctl = "/usr/local/sbin/smartctl";
+my ${smartctl} = "/usr/sbin/smartctl";
 
 # IPMI setup:
 
-# Toggle IPMI support on or off: 
+# Toggle IPMI support on or off:
 # 1 = on:   use IPMI
-# 0 = off:  use sysctl instead of IPMI 
+# 0 = off:  use sysctl instead of IPMI
 
 my $useipmi = 0;
 
@@ -46,19 +46,19 @@ my $useipmi = 0;
 # You may not need credentials on some systems. In this case, ignore these
 # variables and modify the ipmitool variable below to suit your environment,
 # removing the '-I lanplus' and user credential options (-U and -f) as needed.
- 
+
 my $ipmiuser = "root";
 my $ipmipwfile = "/root/ipmi_password";
 
 # The IPMI host must be either an IP address or a DNS-resolvable hostname. If you
-# have multiple systems, leave the variable blank and edit the conditional below 
+# have multiple systems, leave the variable blank and edit the conditional below
 # to specify the IPMI host according to the host on which you are running the script:
 
 my $ipmihost = "";
 
-if ($useipmi && $ipmihost eq "") 
+if ($useipmi && $ipmihost eq "")
   {
-  if ($hostname =~ /bandit/) 
+  if ($hostname =~ /bandit/)
     {
     $ipmihost="falcon.ipmi.spearfoot.net"
     }
@@ -66,7 +66,7 @@ if ($useipmi && $ipmihost eq "")
     {
     $ipmihost="felix.ipmi.spearfoot.net"
     }
-  elsif ($hostname =~ /bacon/)  
+  elsif ($hostname =~ /bacon/)
     {
     $ipmihost="fritz.ipmi.spearfoot.net"
     }
@@ -78,20 +78,20 @@ if ($useipmi && $ipmihost eq "")
 
 # Full path to ipmitool program, including options and credentials:
 
-my $ipmitool = "/usr/local/bin/ipmitool -I lanplus -H $ipmihost -U $ipmiuser -f $ipmipwfile";
+my $ipmitool = "/usr/bin/ipmitool -I lanplus -H $ipmihost -U $ipmiuser -f $ipmipwfile";
 
 main();
 
 ###############################################################################
-# 
+#
 # main
-# 
+#
 ###############################################################################
 sub main
 {
   printf("==========\n\n");
 
-  if ($useipmi) 
+  if ($useipmi)
     {
     printf("%s (IPMI host: %s)\n\n",$hostname,$ipmihost);
     }
@@ -105,11 +105,11 @@ sub main
 }
 
 ###############################################################################
-# 
+#
 # display_cpu_temps
-# 
+#
 ###############################################################################
-sub display_cpu_temps 
+sub display_cpu_temps
 {
   my $temp;
   my $cpucores=0;
@@ -163,9 +163,9 @@ sub display_cpu_temps
 }
 
 ###############################################################################
-# 
+#
 # display_drive_info
-# 
+#
 ###############################################################################
 sub display_drive_info
 {
@@ -185,7 +185,7 @@ sub display_drive_info
   foreach my $drive (@smart_drive_list)
     {
     ($drive_model, $drive_family, $drive_serial, $drive_capacity, $drive_temp, $drive_is_ssd) = get_drive_info($drive);
-    
+
     if ($drive =~ /\/dev\/(.*)/)
       {
       $drive_id = $1;
@@ -194,7 +194,7 @@ sub display_drive_info
       {
       $drive_id = $drive;
       }
-    
+
     if ($drive_family eq "")
       {
       $drive_family_display = "";
@@ -203,7 +203,7 @@ sub display_drive_info
       {
       $drive_family_display = "(" . $drive_family . ")";
       }
-    
+
     printf("%6.6s: %3uC [%8.8s %s] %-20.20s %s %s\n",
       $drive_id,
       $drive_temp,
@@ -216,20 +216,20 @@ sub display_drive_info
 }
 
 ###############################################################################
-# 
+#
 # get_smart_drives
-# 
+#
 ###############################################################################
 sub get_smart_drives
 {
   my @retval = ();
-  my @drive_list = split(" ", qx($smartctl --scan | awk '{print \$1}'));
- 
+  my @drive_list = split(" ", qx(${smartctl} --scan | awk '{print \$1}'));
+
   foreach my $drive (@drive_list)
     {
-    my $smart_enabled = qx($smartctl -i $drive | grep "SMART support is: Enabled" | awk '{print \$4}');
+    my $smart_enabled = qx(${smartctl} -i $drive | grep "SMART support is: Enabled" | awk '{print \$4}');
     chomp($smart_enabled);
-    if ($smart_enabled eq "Enabled") 
+    if ($smart_enabled eq "Enabled")
       {
       push @retval, $drive;
       }
@@ -239,14 +239,14 @@ sub get_smart_drives
 }
 
 ###############################################################################
-# 
+#
 # get_drive_info
-# 
+#
 ###############################################################################
 sub get_drive_info
 {
   my $drive = shift;
-  my $smart_data = qx($smartctl -a $drive);
+  my $smart_data = qx(${smartctl} -a $drive);
 
   my $drive_model = "";
   my $drive_family = "";
@@ -308,23 +308,21 @@ sub get_drive_info
 }
 
 ###############################################################################
-# 
+#
 # get_drive_temp
-# 
+#
 ###############################################################################
 sub get_drive_temp
 {
   my $drive = shift;
   my $retval = 0;
 
-  $retval = qx($smartctl -A $drive | grep "194 Temperature" | awk '{print \$10}');
+  $retval = qx(${smartctl} -A $drive | grep "194 Temperature" | awk '{print \$10}');
 
   if (!$retval)
     {
-    $retval = qx($smartctl -A $drive | grep "190 Airflow_Temperature" | awk '{print \$10}');
+    $retval = qx(${smartctl} -A $drive | grep "190 Airflow_Temperature" | awk '{print \$10}');
     }
 
   return $retval;
 }
-
-

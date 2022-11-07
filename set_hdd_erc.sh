@@ -1,4 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# See https://sharats.me/posts/shell-script-best-practices/
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
 
 # https://www.smartmontools.org/wiki/FAQ#WhatiserrorrecoverycontrolERCandwhyitisimportanttoenableitfortheSATAdisksinRAID
 
@@ -6,6 +14,9 @@
 
 readsetting=70
 writesetting=70
+
+# Full path to 'smartctl' binary:
+smartctl=$(which smartctl)
 
 # We need a list of the SMART-enabled drives on the system. Choose one of these
 # three methods to provide the list. Comment out the two unused sections of code.
@@ -15,18 +26,18 @@ writesetting=70
 
 # 2. A systcl-based technique suggested on the FreeNAS forum:
 #drives=$(for drive in $(sysctl -n kern.disks); do \
-#if [ "$(/usr/local/sbin/smartctl -i /dev/${drive} | grep "SMART support is: Enabled" | awk '{print $3}')" ]
+#if [ "$($(which smartctl) -i /dev/${drive} | grep "SMART support is: Enabled" | awk '{print $3}')" ]
 #then printf ${drive}" "; fi done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 
 # 3. A smartctl-based function:
 get_smart_drives()
 {
-  gs_drives=$(/usr/local/sbin/smartctl --scan | grep "dev" | awk '{print $1}' | sed -e 's/\/dev\///' | tr '\n' ' ')
+  gs_drives=$(${smartctl} --scan | grep "dev" | awk '{print $1}' | sed -e 's/\/dev\///' | tr '\n' ' ')
 
   gs_smartdrives=""
 
   for gs_drive in $gs_drives; do
-    gs_smart_flag=$(/usr/local/sbin/smartctl -i /dev/"$gs_drive" | grep "SMART support is: Enabled" | awk '{print $4}')
+    gs_smart_flag=$(${smartctl} -i /dev/"$gs_drive" | grep "SMART support is: Enabled" | awk '{print $4}')
     if [ "$gs_smart_flag" = "Enabled" ]; then
       gs_smartdrives=$gs_smartdrives" "${gs_drive}
     fi
@@ -43,8 +54,8 @@ get_smart_drives drives
 set_erc()
 {
   echo "Drive: /dev/$1"
-  /usr/local/sbin/smartctl -q silent -l scterc,"${readsetting}","${writesetting}" /dev/"$1"
-  /usr/local/sbin/smartctl -l scterc /dev/"$1" | grep "SCT\|Write\|Read"
+  ${smartctl} -q silent -l scterc,"${readsetting}","${writesetting}" /dev/"$1"
+  ${smartctl} -l scterc /dev/"$1" | grep "SCT\|Write\|Read"
 }
 
 for drive in $drives; do

@@ -1,4 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# See https://sharats.me/posts/shell-script-best-practices/
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
 
 #####
 # Backup the TrueNAS/FreeNAS configuration database and password secret encryption files
@@ -48,7 +56,7 @@ fi
 # Form a unique, timestamped filename for the backup configuration database and tarball
 
 P1=$(hostname -s)
-P2=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n') 
+P2=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n')
 P3=$(date +%Y%m%d%H%M%S)
 fnconfigdest_base="$P1"-"$P2"-"$P3"
 fnconfigdestdb="${configdir}"/"${fnconfigdest_base}".db
@@ -56,10 +64,10 @@ fnconfigtarball="${configdir}"/"${fnconfigdest_base}".tar
 
 # Copy the source database and password encryption secret key to the destination:
 
-echo "Backup ${osvers} configuration database file: ${fnconfigdestdb}" 
+echo "Backup ${osvers} configuration database file: ${fnconfigdestdb}"
 
 cp -f /data/pwenc_secret "$configdir"
-/usr/local/bin/sqlite3 /data/freenas-v1.db ".backup main '${fnconfigdestdb}'"
+/usr/bin/sqlite3 /data/freenas-v1.db ".backup main '${fnconfigdestdb}'"
 l_status=$?
 
 # Validate the configuration file and create tarball:
@@ -96,7 +104,7 @@ if [ -n "${esxihost}" ]; then
   esxiconfig_url=$(ssh root@"${esxihost}" vim-cmd hostsvc/firmware/backup_config | awk '{print $7}' | sed -e "s|*|$esxihostname|")
   esxiconfig_date=$(date +%Y%m%d%H%M%S)
   esxiconfig_file="${configdir}"/"${esxihost}"-configBundle-"${esxiconfig_date}".tgz
-  
+
   echo "Downloading $esxiconfig_url to $esxiconfig_file"
   wget --no-check-certificate --output-document="${esxiconfig_file}" "${esxiconfig_url}"
 fi
@@ -107,14 +115,14 @@ if [ -n "${notifyemail}" ]; then
   freenashostuc=$(hostname -s | tr '[:lower:]' '[:upper:]')
   freenashostname=$(hostname)
   freenasversion=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n')
-  boundary="===== MIME boundary; ${osvers} server ${freenashostname} =====" 
+  boundary="===== MIME boundary; ${osvers} server ${freenashostname} ====="
   logfile="/tmp/save_config.tmp"
   if [ $l_status -eq 0 ]; then
     subject="${osvers} configuration saved on server ${freenashostuc}"
   else
     subject="${osvers} configuration backup failed on server ${freenashostuc}"
   fi
-  
+
   printf "%s\n" "To: ${notifyemail}
 Subject: ${subject}
 Mime-Version: 1.0
@@ -124,8 +132,8 @@ Content-Type: multipart/mixed; boundary=\"$boundary\"
 Content-Type: text/html; charset=\"US-ASCII\"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-<html><head></head><body><pre style=\"font-size:14px; white-space:pre\">" > ${logfile} 
-  
+<html><head></head><body><pre style=\"font-size:14px; white-space:pre\">" > ${logfile}
+
 (
     if [ $l_status -eq 0 ]; then
       echo "Configuration file saved successfully on ${rundate}"
@@ -139,9 +147,9 @@ Content-Disposition: inline
     echo "Files:"
 	echo "  ${fnconfigdestdb}"
 	echo "  ${configdir}/pwenc_secret"
-    if [ "$do_tar" -ne 0 ]; then	
+    if [ "$do_tar" -ne 0 ]; then
 	   echo "  ${fnconfigtarball}"
-	fi 
+	fi
     if [ -n "${esxihost}" ]; then
       echo ""
       echo "--- ESXi ---"
@@ -150,12 +158,10 @@ Content-Disposition: inline
       echo "File: ${esxiconfig_file}"
     fi
 ) >> ${logfile}
-  
+
   printf "%s\n" "</pre></body></html>
---${boundary}--" >> ${logfile}  
+--${boundary}--" >> ${logfile}
 
   sendmail -t -oi < ${logfile}
   rm ${logfile}
 fi
-
-

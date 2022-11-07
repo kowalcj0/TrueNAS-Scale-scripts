@@ -1,4 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# See https://sharats.me/posts/shell-script-best-practices/
+# set -o errexit  # Has to be disabled for this script to operate
+set -o nounset
+# set -o pipefail  # Has to be disabled for this script to operate
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
 
 ### Parameters ###
 
@@ -6,10 +14,10 @@
 email=""
 
 # Full path to 'smartctl' program:
-smartctl=/usr/local/sbin/smartctl
+smartctl=$(which smartctl)
 
 freenashost=$(hostname -s | tr '[:lower:]' '[:upper:]')
-boundary="===== MIME boundary; FreeNAS server ${freenashost} ====="
+boundary="===== MIME boundary; TrueNas Scale server ${freenashost} ====="
 logfile="smart_report.tmp"
 subject="SMART Status Report for ${freenashost}"
 tempWarn=40
@@ -28,9 +36,9 @@ SAS_list=""
 # Get list of SMART-enabled drives
 get_smart_drives()
 {
-  gs_drives=$("$smartctl" --scan | awk '{print $1}')
+  gs_drives=$("${smartctl}" --scan | awk '{print $1}')
   for gs_drive in $gs_drives; do
-    gs_smart_flag=$("$smartctl" -i "$gs_drive" | grep -E "SMART support is:[[:blank:]]+Enabled" | awk '{print $4}')
+    gs_smart_flag=$("${smartctl}" -i "$gs_drive" | grep -E "SMART support is:[[:blank:]]+Enabled" | awk '{print $4}')
     if [ "$gs_smart_flag" = "Enabled" ]; then
       Drive_list="$Drive_list $gs_drive"
       Drive_count=$((Drive_count + 1))
@@ -43,16 +51,16 @@ get_sata_drives()
 {
   for drive in $Drive_list; do
     lFound=0
-    gsata_smart_flag=$("$smartctl" -i "$drive" | grep -E "SATA Version is:[[:blank:]]" | awk '{print $4}')
+    gsata_smart_flag=$("${smartctl}" -i "$drive" | grep -E "SATA Version is:[[:blank:]]" | awk '{print $4}')
     if [ "$gsata_smart_flag" = "SATA" ]; then
       lFound=$((lFound + 1))
     else
-      gsata_smart_flag=$("$smartctl" -i "$drive" | grep -E "ATA Version is:[[:blank:]]" | awk '{print $1}')
-      if [ "$gsata_smart_flag" = "ATA" ]; then  
+      gsata_smart_flag=$("${smartctl}" -i "$drive" | grep -E "ATA Version is:[[:blank:]]" | awk '{print $1}')
+      if [ "$gsata_smart_flag" = "ATA" ]; then
         lFound=$((lFound + 1))
       fi
     fi
-    if [ $lFound -gt 0 ]; then  
+    if [ $lFound -gt 0 ]; then
       SATA_list="$SATA_list $drive"
       SATA_count=$((SATA_count + 1))
     fi
@@ -63,7 +71,7 @@ get_sata_drives()
 get_sas_drives()
 {
   for drive in $Drive_list; do
-    gsas_smart_flag=$("$smartctl" -i "$drive" | grep -E "Transport protocol:[[:blank:]]+SAS" | awk '{print $3}')
+    gsas_smart_flag=$("${smartctl}" -i "$drive" | grep -E "Transport protocol:[[:blank:]]+SAS" | awk '{print $3}')
     if [ "$gsas_smart_flag" = "SAS" ]; then
       SAS_list="$SAS_list $drive"
       SAS_count=$((SAS_count + 1))
@@ -103,13 +111,13 @@ if [ $SATA_count -gt 0 ]; then
    echo "|       |                        |    | Hours|Count|Count|       |Sectors|Sectors |      |          |Writes|    Count  |Age |"
    echo "+-------+------------------------+----+------+-----+-----+-------+-------+--------+------+----------+------+-----------+----+"
   ) >> "$logfile"
-  
+
   ###### Detail information for each SATA drive ######
   for drive in $SATA_list; do
     (
     devid=$(basename "$drive")
-    lastTestHours=$("$smartctl" -l selftest "$drive" | grep "# 1" | awk '{print $9}')
-    "$smartctl" -A -i -v 7,hex48 "$drive" | \
+    lastTestHours=$("${smartctl}" -l selftest "$drive" | grep "# 1" | awk '{print $9}')
+    "${smartctl}" -A -i -v 7,hex48 "$drive" | \
     awk -v device="$devid" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" \
     -v testAgeWarn="$testAgeWarn" -v warnSymbol="$warnSymbol" -v critSymbol="$critSymbol" \
     -v lastTestHours="$lastTestHours" '
@@ -163,7 +171,7 @@ if [ $SAS_count -gt 0 ]; then
     if [ $SATA_count -gt 0 ]; then
       echo ""
     fi
-  
+
     echo "########## SMART status report summary for all SAS drives on server ${freenashost} ##########"
     echo ""
     echo "+-------+------------------------+----+------+-----+------+------+------+------+------+------+----+"
@@ -172,13 +180,13 @@ if [ $SAS_count -gt 0 ]; then
     echo "|       |                        |    | Hours|Count|Count |Elems |Errors|Errors|Errors|Errors|Age |"
     echo "+-------+------------------------+----+------+-----+------+------+------+------+------+------+----+"
   ) >> "$logfile"
-  
+
   ###### Detail information for each SAS drive ######
   for drive in $SAS_list; do
     (
     devid=$(basename "$drive")
-    lastTestHours=$("$smartctl" -l selftest "$drive" | grep "# 1" | awk '{print $7}')
-    "$smartctl" -x "$drive" | \
+    lastTestHours=$("${smartctl}" -l selftest "$drive" | grep "# 1" | awk '{print $7}')
+    "${smartctl}" -x "$drive" | \
     awk -v device="$devid" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" \
     -v warnSymbol="$warnSymbol" -v critSymbol="$critSymbol" \
 	-v lastTestHours="$lastTestHours" -v testAgeWarn="$testAgeWarn" '
@@ -212,56 +220,56 @@ if [ $SAS_count -gt 0 ]; then
 fi
 
 if [ $SATA_count -gt 0 ] || [ $SAS_count -gt 0 ]; then
- 
+
   ###### Emit SATA drive information ######
   for drive in $SATA_list; do
-    vendor=$("$smartctl" -i "$drive" | grep "Vendor:" | awk '{print $NF}')
+    vendor=$("${smartctl}" -i "$drive" | grep "Vendor:" | awk '{print $NF}')
     if [ -z "$vendor" ]; then
-      dfamily=$("$smartctl" -i "$drive" | grep "Model Family" | awk '{print $3, $4, $5, $6, $7}' | sed -e 's/[[:space:]]*$//')
-      dmodel=$("$smartctl" -i "$drive" | grep "Device Model" | awk '{print $3, $4, $5, $6, $7}' | sed -e 's/[[:space:]]*$//')
+      dfamily=$("${smartctl}" -i "$drive" | grep "Model Family" | awk '{print $3, $4, $5, $6, $7}' | sed -e 's/[[:space:]]*$//')
+      dmodel=$("${smartctl}" -i "$drive" | grep "Device Model" | awk '{print $3, $4, $5, $6, $7}' | sed -e 's/[[:space:]]*$//')
       if [ -z "$dfamily" ]; then
         dinfo=$dmodel
       else
         dinfo="$dfamily ($dmodel)"
       fi
     else
-      product=$("$smartctl" -i "$drive" | grep "Product:" | awk '{print $NF}')
-      revision=$("$smartctl" -i "$drive" | grep "Revision:" | awk '{print $NF}')
+      product=$("${smartctl}" -i "$drive" | grep "Product:" | awk '{print $NF}')
+      revision=$("${smartctl}" -i "$drive" | grep "Revision:" | awk '{print $NF}')
       dinfo="$vendor $product $revision"
     fi
-    serial=$("$smartctl" -i "$drive" | grep "Serial Number" | awk '{print $3}')
+    serial=$("${smartctl}" -i "$drive" | grep "Serial Number" | awk '{print $3}')
     (
     echo ""
     echo "########## SATA drive $drive Serial: $serial"
-    echo "########## ${dinfo}" 
-    "$smartctl" -n never -H -A -l error "$drive"
-    "$smartctl" -n never -l selftest "$drive" | grep "# 1 \\|Num" | cut -c6-
+    echo "########## ${dinfo}"
+    "${smartctl}" -n never -H -A -l error "$drive"
+    "${smartctl}" -n never -l selftest "$drive" | grep "# 1 \\|Num" | cut -c6-
     ) >> "$logfile"
   done
-  
+
   ###### Emit SAS drive information ######
   for drive in $SAS_list; do
     devid=$(basename "$drive")
-    brand=$("$smartctl" -i "$drive" | grep "Product" | sed "s/^.* //")
-    serial=$("$smartctl" -i "$drive" | grep "Serial number" | sed "s/^.* //")
+    brand=$("${smartctl}" -i "$drive" | grep "Product" | sed "s/^.* //")
+    serial=$("${smartctl}" -i "$drive" | grep "Serial number" | sed "s/^.* //")
     (
     echo ""
     echo "########## SMART status for SAS drive $drive $serial (${brand}) ##########"
-    "$smartctl" -n never -H -A -l error "$drive"
-    "$smartctl" -n never -l selftest "$drive" | grep "# 1 \\|Num" | cut -c6-
+    "${smartctl}" -n never -H -A -l error "$drive"
+    "${smartctl}" -n never -l selftest "$drive" | grep "# 1 \\|Num" | cut -c6-
     ) >> "$logfile"
   done
 fi
 
-sed -i '' -e '/smartctl 7.*/d' "$logfile"
-sed -i '' -e '/smartctl 6.*/d' "$logfile"
-sed -i '' -e '/smartctl 5.*/d' "$logfile"
-sed -i '' -e '/smartctl 4.*/d' "$logfile"
-sed -i '' -e '/Copyright/d' "$logfile"
-sed -i '' -e '/=== START OF READ/d' "$logfile"
-sed -i '' -e '/SMART Attributes Data/d' "$logfile"
-sed -i '' -e '/Vendor Specific SMART/d' "$logfile"
-sed -i '' -e '/SMART Error Log Version/d' "$logfile"
+sed -i -e '/smartctl 7.*/d' "$logfile"
+sed -i -e '/smartctl 6.*/d' "$logfile"
+sed -i -e '/smartctl 5.*/d' "$logfile"
+sed -i -e '/smartctl 4.*/d' "$logfile"
+sed -i -e '/Copyright/d' "$logfile"
+sed -i -e '/=== START OF READ/d' "$logfile"
+sed -i -e '/SMART Attributes Data/d' "$logfile"
+sed -i -e '/Vendor Specific SMART/d' "$logfile"
+sed -i -e '/SMART Error Log Version/d' "$logfile"
 
 printf "%s\n" "</pre></body></html>
 --${boundary}--" >> ${logfile}

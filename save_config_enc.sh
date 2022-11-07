@@ -1,24 +1,33 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# See https://sharats.me/posts/shell-script-best-practices/
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
 
 #################################################
 # Backup FreeNAS configuration files
-# 
+#
 # Copies the FreeNAS sqlite3 configuration and password secret
 # seed files to the location you specify in the 'configdir'
 # variable below.
-# 
-# OPTIONAL: 
-# 
+#
+# OPTIONAL:
+#
 # By specifying your email address in the 'email' variable, you may choose to
 # have the configuration file emailed to you in an encrypted tarball.
-# 
+#
 #################################################
 
 rundate=$(date)
 
 # Optional: specify your email address here if you want to the script to email
-# you the configuration file in an encrypted tarball. 
-# 
+# you the configuration file in an encrypted tarball.
+#
 # Leave the email address blank to simply copy the configuration file to the
 # destination you specify with the 'configdir' setting below.
 email=""
@@ -45,8 +54,8 @@ mime_boundary="==>>> MIME boundary; FreeNAS server [${freenashost}] <<<=="
 #################################################
 # Append file attachment to current email message
 #################################################
- 
-append_file() 
+
+append_file()
 {
   l_mimetype=""
 
@@ -67,18 +76,18 @@ Content-Disposition: attachment; filename=\"$(basename "$1")\"
 # Backup the FreeNAS configuration file
 #################################################
 
-fnconfigdest_version=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n') 
+fnconfigdest_version=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n')
 fnconfigdest_date=$(date +%Y%m%d%H%M%S)
 fnconfigdest_base="$freenashost"-"$fnconfigdest_version"-"$fnconfigdest_date".db
 fnconfigdest="$configdir"/"$fnconfigdest_base"
 fnconfigtarball=./"$freenashost"-"$fnconfigdest_version"-"$fnconfigdest_date".tar.gz
 fnconfigtarballenc=./"$freenashost"-"$fnconfigdest_version"-"$fnconfigdest_date".tar.gz.enc
 
-echo "Backup configuration database file: $fnconfigdest" 
+echo "Backup configuration database file: $fnconfigdest"
 
 # Copy the source database and password encryption secret seed file to the destination:
 
-/usr/local/bin/sqlite3 /data/freenas-v1.db ".backup main '${fnconfigdest}'"
+/usr/bin/sqlite3 /data/freenas-v1.db ".backup main '${fnconfigdest}'"
 l_status=$?
 cp -f /data/pwenc_secret "$configdir"
 
@@ -120,7 +129,7 @@ fi
 
 freenashostuc=$(hostname -s | tr '[:lower:]' '[:upper:]')
 freenashostname=$(hostname)
-freenasversion=$(cat /etc/version) 
+freenasversion=$(cat /etc/version)
 if [ $l_status -eq 0 ]; then
   subject="FreeNAS configuration saved on server ${freenashostuc}"
   savestatus="FreeNAS configuration file saved successfully on ${rundate}"
@@ -129,7 +138,7 @@ else
   savestatus="FreeNAS configuration backup failed with status=${l_status} on ${rundate}"
 fi
 logfile="/tmp/save_config_enc.tmp"
-{ 
+{
 printf '%s\n' "From: root
 To: ${email}
 Subject: ${subject}
@@ -160,6 +169,3 @@ sendmail -t -oi < "$logfile"
 rm "$logfile"
 rm "$fnconfigtarball"
 rm "$fnconfigtarballenc"
-
-
-
